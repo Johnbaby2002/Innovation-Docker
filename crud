@@ -1,0 +1,154 @@
+<?php
+// Database connection
+$servername = "localhost";
+$username = "your_username";
+$password = "your_password";
+$dbname = "ehr_system";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Patient CRUD operations class
+class PatientRecords {
+    private $conn;
+    
+    public function __construct($conn) {
+        $this->conn = $conn;
+    }
+    
+    // Create new patient record
+    public function createPatient($doctor_id, $data) {
+        $sql = "INSERT INTO patients (
+            doctor_id, first_name, last_name, date_of_birth, gender,
+            medical_history, allergies, medications, vital_signs,
+            lab_results, weight, height, image_path
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param(
+            "isssssssssids",
+            $doctor_id,
+            $data['first_name'],
+            $data['last_name'],
+            $data['date_of_birth'],
+            $data['gender'],
+            $data['medical_history'],
+            $data['allergies'],
+            $data['medications'],
+            $data['vital_signs'],
+            $data['lab_results'],
+            $data['weight'],
+            $data['height'],
+            $data['image_path']
+        );
+        
+        return $stmt->execute();
+    }
+    
+    // Read patient record(s)
+    public function getPatients($doctor_id, $patient_id = null) {
+        if ($patient_id) {
+            $sql = "SELECT * FROM patients WHERE doctor_id = ? AND id = ?";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bind_param("ii", $doctor_id, $patient_id);
+        } else {
+            $sql = "SELECT * FROM patients WHERE doctor_id = ?";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bind_param("i", $doctor_id);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result->fetch_all(MYSQLI_ASSOC);
+    }
+    
+    // Update patient record
+    public function updatePatient($doctor_id, $patient_id, $data) {
+        $sql = "UPDATE patients SET 
+            first_name = ?, last_name = ?, date_of_birth = ?,
+            gender = ?, medical_history = ?, allergies = ?,
+            medications = ?, vital_signs = ?, lab_results = ?,
+            weight = ?, height = ?, image_path = ?
+            WHERE doctor_id = ? AND id = ?";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param(
+            "sssssssssidsis",
+            $data['first_name'],
+            $data['last_name'],
+            $data['date_of_birth'],
+            $data['gender'],
+            $data['medical_history'],
+            $data['allergies'],
+            $data['medications'],
+            $data['vital_signs'],
+            $data['lab_results'],
+            $data['weight'],
+            $data['height'],
+            $data['image_path'],
+            $doctor_id,
+            $patient_id
+        );
+        
+        return $stmt->execute();
+    }
+    
+    // Delete patient record
+    public function deletePatient($doctor_id, $patient_id) {
+        $sql = "DELETE FROM patients WHERE doctor_id = ? AND id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $doctor_id, $patient_id);
+        return $stmt->execute();
+    }
+}
+
+// Example database schema
+$schema = "
+CREATE TABLE IF NOT EXISTS patients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    doctor_id INT NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    date_of_birth DATE NOT NULL,
+    gender VARCHAR(10) NOT NULL,
+    medical_history TEXT,
+    allergies TEXT,
+    medications TEXT,
+    vital_signs TEXT,
+    lab_results TEXT,
+    weight DECIMAL(5,2),
+    height DECIMAL(5,2),
+    image_path VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+)";
+
+// Usage example
+if (isset($_SESSION['doctor_id'])) {
+    $patientRecords = new PatientRecords($conn);
+    
+    // Example: Create new patient
+    $newPatient = [
+        'first_name' => 'John',
+        'last_name' => 'Doe',
+        'date_of_birth' => '1990-01-01',
+        'gender' => 'Male',
+        'medical_history' => 'No significant history',
+        'allergies' => 'None',
+        'medications' => 'None',
+        'vital_signs' => 'BP: 120/80, HR: 72',
+        'lab_results' => 'All normal',
+        'weight' => 70.5,
+        'height' => 175.0,
+        'image_path' => 'uploads/patient_images/john_doe.jpg'
+    ];
+    
+    $patientRecords->createPatient($_SESSION['doctor_id'], $newPatient);
+}
+?>
